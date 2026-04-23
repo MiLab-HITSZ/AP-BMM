@@ -1,0 +1,94 @@
+[project]
+name = "APBMM"
+version = "0.1.0"
+description = "Core code release for the AP-BMM paper"
+authors = [
+    {name = "Kesheng Chen", email = "user@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+
+dependencies = [
+    "accelerate>=1.5.2",
+    "alpaca-eval",
+    "jupyter>=1.1.1",
+    "math-verify>=0.7.0",
+    "pylatexenc==2.10",
+    "notebook>=7.4.2",
+    "pytest>=8.3.5",
+    "torch",
+    "torch-c-dlpack-ext",
+    "tqdm>=4.67.1",
+    "transformers>=4.50.0",
+    "typer>=0.15.4",
+    "vllm==0.10.1.1;platform_python_implementation=='CPython' and python_version>='3.13'",
+    "vllm>=0.7.2,<0.8.0;platform_python_implementation=='CPython' and python_version<'3.13'",
+    "wandb>=0.19.8",
+    "xopen>=2.0.2",
+    "jsonlines",
+    "botorch",
+    "gpytorch",
+    "pandas>=2.0.0;python_version>='3.13'",
+    "ray>=2.42.0;python_version>='3.13'",
+    "ray<2.42.0;python_version<'3.13'",
+    "torchaudio>=2.6.0;python_version>='3.13'",
+    "flash-attn>=2.0.0,<3.0.0;python_version<'3.13'",
+    "modelscope",
+    "colorlog",
+    "datasets==3.6.0",
+    "docstring_parser",
+    "dotenv",
+    "jieba",
+    "jsonlines",
+    "langdetect",
+    "latex2sympy2_extended[antlr4_9_3]",
+    "matplotlib",
+    "modelscope[framework]>=1.27",
+    "nltk>=3.9",
+    "openai",
+    "overrides",
+    "pandas",
+    "pillow",
+    "pydantic",
+    "pylatexenc",
+    "pyyaml>=5.1",
+    "requests",
+    "rich",
+    "rouge-chinese",
+    "rouge-score>=0.1.0",
+    "sacrebleu",
+    "scikit-learn",
+    "seaborn",
+    "sympy",
+    "tabulate",
+    "tqdm",
+    "transformers>=4.33",
+    "word2number",
+    "immutables",
+    "peft",
+    "pymoo",
+    "matplotlib",
+    "networkx"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evoMI", "src/ta_methos", "evalscope", "mergekit"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[[index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[tool.uv.extra-build-dependencies]
+flash-attn = ["torch"]  # Only used when python_version<'3.13'
+

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Runtime artifacts (keep directory placeholders)
+checkpoints/*
+!checkpoints/.gitkeep
+output/*
+!output/.gitkeep
+models/*
+!models/.gitkeep
+.mplconfig/*
+!.mplconfig/.gitkeep
+outputs/
+results/
+wandb/
+logs/
+*.log
+
+# Editors
+.vscode/
+.idea/
+.DS_Store

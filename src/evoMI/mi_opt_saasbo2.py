@@ -307,10 +307,6 @@ def initialize_model_evaluations(
             server_manager = get_shared_vllm_manager(max_model_len=effective_max_model_len)
             results = server_manager.run_series_tasks(submit_tasks)
             print(f"模型初始化评测完成，耗时: {time.time() - start_time:.2f} 秒")
-            max_pending_candidates = max(
-                fusion_worker_count,
-                min(max(2, fusion_worker_count * 2), max(1, len(candidate_specs))),
-            )
             result_processor = ResultProcessor()
             for spec in model_eval_specs:
                 task_id = spec['task']['task_id']

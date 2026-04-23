@@ -16,10 +16,9 @@ from src.evoMI.model_reproduction import build_eval_cache_config, build_eval_set
 
 
 DEFAULT_ALGORITHMS = [
+    {"name": "apbmm", "algorithm": "sass_prior_bo_wo_update_gap_async", "async_mode": True},
     {"name": "qnehvi", "algorithm": "qnehvi", "async_mode": False},
-    {"name": "prior_sync", "algorithm": "priorbo", "async_mode": False},
-    {"name": "prior_async", "algorithm": "priorbo", "async_mode": True},
-    {"name": "mmmo", "algorithm": "mmmo", "async_mode": False},
+    {"name": "momm", "algorithm": "momm", "async_mode": False},
     {"name": "moead_cmaes", "algorithm": "moead_cmaes", "async_mode": False},
 ]
 

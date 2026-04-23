@@ -93,7 +93,7 @@ python src/evoMI/mi_opt_unified.py --help
 python src/ta_methos/model_level_fusion_test.py --help
 python src/evoMI/evaluation_script.py \
   --plan-only \
-  --algorithms qnehvi prior_async moead_cmaes \
+  --algorithms apbmm qnehvi momm moead_cmaes \
   --eval-profile gsm8k_gpqa \
   --gsm8k-limit 2 \
   --gpqa-limit 2 \
@@ -106,13 +106,26 @@ The full experiment commands below additionally require local model weights, ava
 
 ## Run AP-BMM
 
-Main paper-style asynchronous AP-BMM entry:
+The AP-BMM setting used in the paper corresponds to:
+
+- checkpoint/run alias: `sass_prior_bo_wo_update_gap_async`
+- normalized optimizer name: `prior_saas_bo`
+
+This preset enables:
+
+- asynchronous dispatch
+- SAAS prior
+- blueprint / importance prior
+- no importance update
+- no importance-guided acquisition
+- no importance-prior cutoff
+- gap-aware postprocessing
+
+Main paper-style AP-BMM command:
 
 ```bash
 python src/evoMI/mi_opt_unified.py \
-  --algorithm priorbo \
-  --async-mode \
-  --enable-gap-aware-postprocess \
+  --algorithm sass_prior_bo_wo_update_gap_async \
   --base-model-path models/Qwen3-4B-Instruct-2507 \
   --task-model-paths models/Qwen3-4B-thinking-2507 models/Qwen3-4B-Instruct-2507 \
   --num-blocks 36 \
@@ -128,10 +141,14 @@ python src/evoMI/mi_opt_unified.py \
   --available-gpus 0 1 2 3
 ```
 
+For paper ablations, `priorbo` is also retained as the non-SAAS prior-guided BO entry so that sync / async variants can still be reproduced from flags.
+
 ## Optimization baselines
 
 `src/evoMI/mi_opt_unified.py` also supports:
 
+- `priorbo` (for paper ablations)
+- `prior_saas_bo`
 - `qnehvi`
 - `momm`
 - `moead_cmaes`
@@ -182,7 +199,7 @@ After generating checkpoints, you can run:
 
 ```bash
 python src/evoMI/evaluation_script.py \
-  --algorithms qnehvi prior_sync prior_async mmmo moead_cmaes \
+  --algorithms apbmm qnehvi momm moead_cmaes \
   --checkpoint-root ./checkpoints/statistical_eval \
   --cache-root ./output/statistical_eval_cache \
   --eval-profile gsm8k_gpqa \
@@ -193,10 +210,9 @@ python src/evoMI/evaluation_script.py \
 
 Supported `evaluation_script.py --algorithms` values are:
 
+- `apbmm`
 - `qnehvi`
-- `prior_sync`
-- `prior_async`
-- `mmmo`
+- `momm`
 - `moead_cmaes`
 
 ## Outputs

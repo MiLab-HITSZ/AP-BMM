@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import datetime
 from src.evoMI.optimization_reporting import reporter
-from src.evoMI.checkpoint_runtime import (
+from src.evoMI.runtime_artifacts import (
     build_hv_curve,
     build_sync_schedule_record,
     load_standard_checkpoint,

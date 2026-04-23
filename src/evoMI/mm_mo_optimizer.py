@@ -6,7 +6,7 @@ import inspect
 import datetime
 import numpy as np
 import torch
-from src.evoMI.checkpoint_runtime import (
+from src.evoMI.runtime_artifacts import (
     build_eval_metadata,
     build_hv_curve,
     build_sync_schedule_record,

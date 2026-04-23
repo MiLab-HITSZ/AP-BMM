@@ -1,36 +1,42 @@
-# APBMM Release Structure
+# AP-BMM Repository Structure
 
-This file describes the release-oriented layout of the APBMM repository.
+This document summarizes the retained code structure for the AP-BMM paper implementation.
 
-## Core code kept in the release
+## Core modules kept in the repository
 
-- `src/evoMI/`: AP-BMM main method, optimization baselines, checkpoint replay, and evaluation helpers.
-- `src/ta_methos/`: model-level fusion baselines used for comparison.
-- `evalscope/`: local evaluation toolkit required by the runtime.
-- `mergekit/`: local model-merging backend required by the runtime.
-- `scripts/apbmm_quickstart.py`: lightweight environment and CLI sanity checker.
+- `src/evoMI/mi_opt_unified.py`: main optimization entry for AP-BMM and optimization baselines.
+- `src/evoMI/mi_opt_optimizer.py`: prior construction and block partition helpers.
+- `src/evoMI/mi_opt_saasbo2.py`: asynchronous evaluation orchestration for the AP-BMM pipeline.
+- `src/evoMI/evaluation_utils.py`: evaluation configuration, caching, and task execution helpers.
+- `src/evoMI/runtime_artifacts.py`: checkpoint/runtime artifact generation used by the core pipeline.
+- `src/evoMI/task_diff_analyzer.py`: discrepancy analysis used to form AP-BMM priors.
+- `src/evoMI/optimization_reporting.py`: core optimization result visualization.
+- `src/ta_methos/model_level_fusion_test.py`: model-level baselines in the paper.
 
-## Runtime directories kept as placeholders
+## Runtime directories
 
-- `models/`: user-provided base / task models.
-- `checkpoints/`: optimization checkpoints and generated merged models.
-- `output/`: cache files and other temporary runtime artifacts.
-- `.mplconfig/`: optional local matplotlib cache directory.
+- `models/`: user-provided base/task models.
+- `checkpoints/`: optimization checkpoints and runtime artifacts.
+- `output/`: evaluation cache and temporary runtime files.
+- `.mplconfig/`: local matplotlib cache.
 
-These directories are intentionally almost empty in Git and are preserved with `.gitkeep` files only.
+These directories are intentionally lightweight in Git and preserved with `.gitkeep` files.
 
-## Excluded from this release
+## Removed non-core components
 
-- manuscript and supplementary LaTeX sources
-- figure-generation and redraw scripts used only for the paper
-- exploratory debugging scripts
-- generated logs and experiment outputs
+The repository intentionally excludes:
 
-## Minimal release checklist
+- checkpoint replay / checkpoint evaluation utilities
+- checkpoint analysis scripts
+- manuscript LaTeX sources
+- paper-only figure regeneration scripts
+- exploratory debugging utilities outside the main paper workflow
+
+## Quick checklist
 
 1. Create a Python 3.10+ environment.
 2. Install dependencies with `pip install -e .`.
 3. Set `PYTHONPATH=.` and `MPLCONFIGDIR=$PWD/.mplconfig`.
 4. Put the required models under `models/`.
 5. Run `python scripts/apbmm_quickstart.py`.
-6. Launch AP-BMM or a baseline from `src/evoMI/mi_opt_unified.py`.
+6. Launch AP-BMM from `src/evoMI/mi_opt_unified.py` or run `src/ta_methos/model_level_fusion_test.py` for model-level baselines.

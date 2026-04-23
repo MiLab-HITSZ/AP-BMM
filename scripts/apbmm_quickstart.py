@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal quickstart helper for the APBMM release."""
+"""Quickstart helper for the AP-BMM repository."""
 
 from __future__ import annotations
 

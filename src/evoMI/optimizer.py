@@ -23,7 +23,7 @@ from botorch.utils.multi_objective.box_decompositions.non_dominated import FastN
 from botorch.acquisition.multi_objective.logei import qLogNoisyExpectedHypervolumeImprovement
 from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.fit import fit_gpytorch_mll as botorch_fit_gpytorch_mll
-from src.evoMI.checkpoint_runtime import build_eval_metadata
+from src.evoMI.runtime_artifacts import build_eval_metadata
 
 
 def _task_color(task_type, task_key=None):

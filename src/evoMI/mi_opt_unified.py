@@ -19,17 +19,17 @@ from botorch.utils.multi_objective.box_decompositions.non_dominated import FastN
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.evoMI.checkpoint_runtime import (
-    build_eval_metadata,
-    build_hv_curve,
-    build_sync_scheduler_history,
-    ensure_latest_checkpoint_metadata,
-    rebuild_runtime_reports_from_checkpoint,
-    save_runtime_reports,
+from src.evoMI.runtime_artifacts import (
+    build_evaluation_metadata,
+    build_hypervolume_curve,
+    build_synchronous_runtime_history,
+    ensure_runtime_artifacts,
+    save_runtime_artifacts,
+    update_latest_checkpoint_runtime_artifacts,
 )
-from src.evoMI.model_reproduction import (
-    build_eval_cache_config,
-    build_eval_cache_namespace,
+from src.evoMI.evaluation_utils import (
+    build_eval_config,
+    build_eval_namespace,
     build_eval_setting_id,
     load_cached_results,
     normalize_eval_limit,
@@ -687,7 +687,7 @@ def _load_or_create_shared_initial_dataset(
         checkpoint_root,
         "evaluation_cache",
         "shared_initial",
-        build_eval_cache_namespace(eval_config),
+        build_eval_namespace(eval_config),
     )
     os.makedirs(shared_initial_cache_dir, exist_ok=True)
     cache_path = os.path.join(shared_initial_cache_dir, f"{cache_key}.json")
@@ -775,7 +775,7 @@ def _load_or_create_shared_initial_dataset(
     }
 
 
-def _ensure_checkpoint_visualization_compatibility(
+def _sync_runtime_artifacts(
     run_dir,
     train_info,
     hvs,
@@ -784,82 +784,37 @@ def _ensure_checkpoint_visualization_compatibility(
     scheduler_gpu_count,
     async_mode=False,
 ):
-    scheduler_path = os.path.join(run_dir, "scheduler_usage.json")
-    hv_path = os.path.join(run_dir, "hypervolume_curve.json")
-    expected_scheduler_history = build_sync_scheduler_history(
+    scheduler_history, hv_curve = ensure_runtime_artifacts(
+        run_dir=run_dir,
+        initial_samples=initial_samples,
+        batch_size=batch_size,
+        gpu_count=scheduler_gpu_count,
+        async_mode=async_mode,
+    )
+    if scheduler_history or hv_curve:
+        return
+
+    fallback_scheduler_history = build_synchronous_runtime_history(
         train_info=train_info,
         initial_samples=initial_samples,
         batch_size=batch_size,
-        scheduler_gpu_count=scheduler_gpu_count,
+        gpu_count=scheduler_gpu_count,
     )
-    expected_hv_curve = build_hv_curve(
+    fallback_hv_curve = build_hypervolume_curve(
         hvs=hvs,
         initial_samples=initial_samples,
         batch_size=batch_size,
         total_evaluations=len(train_info),
     )
-
-    scheduler_history = None
-    if os.path.exists(scheduler_path):
-        with open(scheduler_path, "r", encoding="utf-8") as handle:
-            loaded_scheduler_history = json.load(handle)
-        if isinstance(loaded_scheduler_history, list):
-            scheduler_history = loaded_scheduler_history
-    if scheduler_history is None:
-        scheduler_history, hv_curve = rebuild_runtime_reports_from_checkpoint(
-            run_dir=run_dir,
-            initial_samples=initial_samples,
-            batch_size=batch_size,
-            scheduler_gpu_count=scheduler_gpu_count,
-            async_mode=async_mode,
-        )
-        return
-    else:
-        is_sync_history = all(
-            isinstance(record, dict) and str(record.get("mode", "sync")).lower() == "sync"
-            for record in scheduler_history
-        )
-        has_absolute_task = any(
-            isinstance(task, dict) and ("absolute_start" in task)
-            for record in scheduler_history
-            if isinstance(record, dict)
-            for task in record.get("tasks", [])
-        )
-        if is_sync_history and bool(async_mode) and not has_absolute_task:
-            scheduler_history, hv_curve = rebuild_runtime_reports_from_checkpoint(
-                run_dir=run_dir,
-                initial_samples=initial_samples,
-                batch_size=batch_size,
-                scheduler_gpu_count=scheduler_gpu_count,
-                async_mode=True,
-            )
-            return
-        if is_sync_history and len(scheduler_history) != len(expected_scheduler_history):
-            scheduler_history = expected_scheduler_history
-
-    hv_curve = None
-    if os.path.exists(hv_path):
-        with open(hv_path, "r", encoding="utf-8") as handle:
-            loaded_hv_curve = json.load(handle)
-        if isinstance(loaded_hv_curve, list):
-            hv_curve = loaded_hv_curve
-    if hv_curve is None:
-        hv_curve = expected_hv_curve
-    else:
-        current_last_eval = int(hv_curve[-1]["evaluations"]) if len(hv_curve) > 0 else 0
-        expected_last_eval = int(expected_hv_curve[-1]["evaluations"]) if len(expected_hv_curve) > 0 else 0
-        if len(hv_curve) != len(expected_hv_curve) or current_last_eval != expected_last_eval:
-            hv_curve = expected_hv_curve
-
-    save_runtime_reports(
+    save_runtime_artifacts(
         run_dir=run_dir,
-        scheduler_history=scheduler_history,
-        hv_curve=hv_curve,
+        scheduler_history=fallback_scheduler_history,
+        hv_curve=fallback_hv_curve,
     )
-    ensure_latest_checkpoint_metadata(
+    update_latest_checkpoint_runtime_artifacts(
         run_dir=run_dir,
-        scheduler_history=scheduler_history,
-        hv_curve=hv_curve,
+        scheduler_history=fallback_scheduler_history,
+        hv_curve=fallback_hv_curve,
     )
 
 
@@ -1233,7 +1188,7 @@ def main_optimization(
         eval_gsm8k_limit=eval_gsm8k_limit,
         eval_math_limit=eval_math_limit,
     )
-    eval_config = build_eval_cache_config(
+    eval_config = build_eval_config(
         eval_profile=eval_profile,
         eval_limit=full_eval_limits,
         repeats=eval_repeats,
@@ -1241,7 +1196,7 @@ def main_optimization(
         seed=seed,
     )
     eval_setting_id = build_eval_setting_id(eval_config)
-    eval_metadata = build_eval_metadata(
+    eval_metadata = build_evaluation_metadata(
         eval_profile=eval_profile,
         eval_limits=full_eval_limits,
         eval_repeats=eval_repeats,
@@ -1469,7 +1424,7 @@ def main_optimization(
     if verbose:
         print(f"\n优化完成！总耗时: {elapsed_time:.2f} 秒 ({elapsed_time / 3600:.2f} 小时)")
 
-    _ensure_checkpoint_visualization_compatibility(
+    _sync_runtime_artifacts(
         run_dir=run_dir,
         train_info=result[2],
         hvs=result[3] if len(result) > 3 else [],

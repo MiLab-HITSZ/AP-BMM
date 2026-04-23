@@ -23,7 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.evoMI.vllm_server_manager import VllmServerManager
 from src.evoMI.result_processor import ResultProcessor
 from src.evoMI.mi_block_fusion import mi_block_fusion, calculate_merged_blocks
-from src.evoMI.model_reproduction import generate_model_cache_key, get_model_cache_path, load_cached_results, save_results_to_cache
+from src.evoMI.evaluation_utils import generate_model_cache_key, get_model_cache_path, load_cached_results, save_results_to_cache
 from src.config_manager import config_manager
 
 # 全局变量
@@ -654,7 +654,7 @@ def test_model_level_fusion(
         except Exception as e:
             print(f"清空临时模型目录时出错: {e}")
     
-    # 保存所有结果到文件，兼容checkpoint_analyzer
+    # 保存所有结果到文件
     print(f"\n===== 保存结果到 {output_root} =====")
     
     # 保存为numpy格式
@@ -681,7 +681,7 @@ def test_model_level_fusion(
     with open(os.path.join(output_root, "results.json"), "w", encoding="utf-8") as f:
         json.dump(results_json, f, indent=2, ensure_ascii=False)
     
-    # 保存为类似checkpoint的格式，兼容checkpoint_analyzer
+    # 保存为统一的 checkpoint 风格格式，便于后续直接读取
     checkpoint_data = {
         'train_x': torch.tensor(np.array(all_decision_variables)),
         'train_obj_true': torch.tensor(np.array(all_objectives)),

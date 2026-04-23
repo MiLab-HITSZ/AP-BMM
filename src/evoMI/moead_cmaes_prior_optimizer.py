@@ -8,7 +8,7 @@ import torch
 from botorch.utils.multi_objective.box_decompositions.non_dominated import FastNondominatedPartitioning
 from botorch.utils.sampling import draw_sobol_samples
 
-from src.evoMI.checkpoint_runtime import (
+from src.evoMI.runtime_artifacts import (
     build_eval_metadata,
     build_hv_curve,
     build_sync_schedule_record,

@@ -31,8 +31,7 @@ from src.evoMI.saasbo_qnehvi_optimize_block import saasbo_qnehvi_two_stage
 from src.evoMI.qehvi_optimizer import qehvi_optimizer
 from src.evoMI.optimization_reporting import reporter
 from src.evoMI.mi_block_fusion import mi_block_fusion
-from src.evoMI.model_reproduction import (
-    available_gpus_global,
+from src.evoMI.evaluation_utils import (
     build_eval_cache_config,
     collect_dataset_metrics,
     create_eval_task_config,
@@ -48,6 +47,7 @@ from src.evoMI.model_reproduction import (
 from src.config_manager import config_manager
 
 # 全局变量用于存储base和expert模型的评测结果
+available_gpus_global = [0, 1, 2, 3]
 base_model_results = None
 expert_model_results = None
 shared_vllm_manager = None

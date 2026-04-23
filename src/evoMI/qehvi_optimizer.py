@@ -3,7 +3,7 @@ import gc
 import torch
 import numpy as np
 import datetime
-from src.evoMI.checkpoint_runtime import build_eval_metadata, load_standard_checkpoint, save_standard_checkpoint
+from src.evoMI.runtime_artifacts import build_eval_metadata, load_standard_checkpoint, save_standard_checkpoint
 from src.evoMI.optimization_reporting import reporter
 from botorch.models.gp_regression import SingleTaskGP
 from botorch.models.model_list_gp_regression import ModelListGP

@@ -35,13 +35,10 @@ from src.evoMI.model_reproduction import (
     normalize_eval_limit,
     save_results_to_cache,
 )
-from src.evoMI.emm_optimizer import emm_optimizer
-from src.evoMI.grid_search_optimizer import grid_search_optimizer
 from src.evoMI.mm_mo_optimizer import mm_mo_optimizer
 from src.evoMI.moead_cmaes_prior_optimizer import moead_cmaes_prior_optimizer
 from src.evoMI.optimizer import prior_bo_optimizer
 from src.evoMI.qehvi_optimizer import qehvi_optimizer
-from src.evoMI.saasbo_qnehvi_optimizer import prior_saas_bo_optimizer, saasbo_qnehvi_optimizer
 
 
 def _set_global_seed(seed):
@@ -411,25 +408,14 @@ def _normalize_algorithm_name(algorithm):
         "priorbo": "priorbo",
         "prior_bo": "priorbo",
         "prior_bo_qnehvi": "priorbo",
-        "prior_saas_bo": "prior_saas_bo",
-        "saas_prior_bo": "prior_saas_bo",
-        "sass_prior_bo": "prior_saas_bo",
-        "sass_prior_bo_wo_update_gap_async": "prior_saas_bo",
-        "saasbo": "saasbo",
-        "sassbo": "saasbo",
-        "saas_bo": "saasbo",
-        "saasbo_qnehvi": "saasbo",
         "qnehvi": "qnehvi",
         "qehvi": "qnehvi",
         "momm": "momm",
         "mm_mo": "momm",
         "mmmo": "momm",
-        "emm": "emm",
         "moead_cmaes": "moead_cmaes",
         "moead": "moead_cmaes",
         "moead_prior": "moead_cmaes",
-        "grid": "grid",
-        "grid_search": "grid",
     }
     if value not in alias_map:
         raise ValueError(f"不支持的算法: {algorithm}")
@@ -450,17 +436,6 @@ def _get_algorithm_preset(algorithm):
         "enable_importance_prior_cutoff": None,
         "enable_gap_aware_postprocess": None,
     }
-    if requested == "sass_prior_bo_wo_update_gap_async":
-        preset.update(
-            {
-                "async_mode": True,
-                "enable_importance_update": False,
-                "enable_importance_guidance": False,
-                "enable_importance_weighted_acq": False,
-                "enable_importance_prior_cutoff": False,
-                "enable_gap_aware_postprocess": True,
-            }
-        )
     return preset
 
 
@@ -991,7 +966,7 @@ def _build_objective_bundle(
 
     wrapped_optimization_function.start_async_session = start_async_session
 
-    if algorithm in {"priorbo", "saasbo", "prior_saas_bo"}:
+    if algorithm == "priorbo":
         wrapped_optimization_function.get_idle_gpu_count = get_idle_gpu_count
         wrapped_optimization_function.collect_newly_completed_tasks = collect_newly_completed_tasks
 
@@ -1047,29 +1022,21 @@ def _prepare_algorithm_kwargs(
 ):
     optimizer_map = {
         "priorbo": prior_bo_optimizer,
-        "saasbo": saasbo_qnehvi_optimizer,
-        "prior_saas_bo": prior_saas_bo_optimizer,
         "qnehvi": qehvi_optimizer,
         "momm": mm_mo_optimizer,
-        "emm": emm_optimizer,
         "moead_cmaes": moead_cmaes_prior_optimizer,
-        "grid": grid_search_optimizer,
     }
     optimizer_fn = optimizer_map[algorithm]
     optimizer_kwargs = dict(config)
 
     effective_proxy_metrics = None
-    if algorithm in {"priorbo", "moead_cmaes", "prior_saas_bo"}:
+    if algorithm in {"priorbo", "moead_cmaes"}:
         effective_m_prior = m_prior
         effective_u_prior = u_prior
         needs_blueprint_priors = (
             enable_blueprint_priors
             and merged_blocks is not None
-            and (
-                effective_m_prior is None
-                or effective_u_prior is None
-                or algorithm == "prior_saas_bo"
-            )
+            and (effective_m_prior is None or effective_u_prior is None)
         )
         if needs_blueprint_priors:
             reason_model_path = task_model_paths[0] if len(task_model_paths) > 0 else base_model_path
@@ -1094,65 +1061,10 @@ def _prepare_algorithm_kwargs(
                 v_ratio=v_ratio,
                 v_patch=v_patch,
             )
-        if effective_m_prior is not None and algorithm != "prior_saas_bo":
+        if effective_m_prior is not None:
             optimizer_kwargs["m_prior"] = _align_prior_length(effective_m_prior, config["dim"])
         if effective_u_prior is not None:
             optimizer_kwargs["u_prior"] = _align_prior_length(effective_u_prior, config["dim"])
-        if algorithm == "prior_saas_bo":
-            if effective_proxy_metrics is not None:
-                optimizer_kwargs["prior_proxy_metrics"] = effective_proxy_metrics
-
-    if algorithm == "saasbo":
-        effective_importance = initial_importance
-        if effective_importance is None:
-            if merged_blocks is not None:
-                from src.evoMI.mi_opt_saasbo2 import compute_layer_importance
-
-                effective_importance = compute_layer_importance(
-                    merged_blocks=merged_blocks,
-                    num_blocks=num_blocks,
-                    optimize_density=optimize_density,
-                )
-            else:
-                effective_importance = torch.ones(config["dim"], dtype=torch.float64)
-        if isinstance(effective_importance, torch.Tensor):
-            importance_value = effective_importance.detach().cpu().numpy()
-        else:
-            importance_value = np.asarray(effective_importance, dtype=np.float64)
-        importance_value = torch.as_tensor(
-            _align_prior_length(importance_value, config["dim"]),
-            dtype=config["dtype"],
-            device=torch.device(config["device"]),
-        )
-        optimizer_kwargs.update(
-            {
-                "use_saas": use_saas,
-                "initial_importance": importance_value,
-                "enable_importance_prior": enable_importance_prior,
-                "enable_importance_update": enable_importance_update,
-                "enable_importance_guidance": enable_importance_guidance,
-                "enable_importance_weighted_acq": enable_importance_weighted_acq,
-                "enable_importance_prior_cutoff": enable_importance_prior_cutoff,
-                "importance_prior_cutoff_evals": importance_prior_cutoff_evals,
-                "learning_rate": learning_rate,
-                "enable_pending_aware_acq": enable_pending_aware_acq,
-            }
-        )
-    elif algorithm == "prior_saas_bo":
-        optimizer_kwargs.update(
-            {
-                "use_saas": use_saas,
-                "enable_importance_prior": enable_importance_prior,
-                "enable_importance_update": enable_importance_update,
-                "enable_importance_guidance": enable_importance_guidance,
-                "enable_importance_weighted_acq": enable_importance_weighted_acq,
-                "enable_importance_prior_cutoff": enable_importance_prior_cutoff,
-                "importance_prior_cutoff_evals": importance_prior_cutoff_evals,
-                "learning_rate": learning_rate,
-                "async_mode": async_mode,
-                "enable_pending_aware_acq": enable_pending_aware_acq,
-            }
-        )
 
     return optimizer_fn, _filter_callable_kwargs(optimizer_fn, optimizer_kwargs)
 
@@ -1247,13 +1159,13 @@ def main_optimization(
         enable_gap_aware_postprocess = bool(algorithm_preset["enable_gap_aware_postprocess"])
     if enable_importance_update is None:
         preset_update = algorithm_preset["enable_importance_update"]
-        enable_importance_update = (algorithm != "prior_saas_bo") if preset_update is None else bool(preset_update)
+        enable_importance_update = True if preset_update is None else bool(preset_update)
     if enable_importance_guidance is None:
         preset_guidance = algorithm_preset["enable_importance_guidance"]
-        enable_importance_guidance = (algorithm != "prior_saas_bo") if preset_guidance is None else bool(preset_guidance)
+        enable_importance_guidance = True if preset_guidance is None else bool(preset_guidance)
     if enable_importance_prior_cutoff is None:
         preset_cutoff = algorithm_preset["enable_importance_prior_cutoff"]
-        enable_importance_prior_cutoff = (algorithm != "prior_saas_bo") if preset_cutoff is None else bool(preset_cutoff)
+        enable_importance_prior_cutoff = True if preset_cutoff is None else bool(preset_cutoff)
     _set_global_seed(seed)
 
     if run_id is None:
@@ -1439,32 +1351,29 @@ def main_optimization(
             eval_repeats=eval_repeats,
             eval_seed=seed,
         )
-        if algorithm == "grid":
-            config["shared_initial_dataset"] = None
-        else:
-            config["shared_initial_dataset"] = _load_or_create_shared_initial_dataset(
-                objective_function=bundle["objective_function"],
-                checkpoint_root=checkpoint_root,
-                cache_dir=cache_dir,
-                eval_config=eval_config,
-                bounds=config["bounds"],
-                dim=config["dim"],
-                num_objectives=num_objectives,
-                initial_samples=initial_samples,
-                custom_initial_solutions=custom_initial_solutions,
-                seed=seed,
-                num_blocks=num_blocks,
-                alpha=alpha,
-                beta=beta,
-                base_model_path=base_model_path,
-                task_model_paths=task_model_paths,
-                fusion_method=fusion_method,
-                optimize_density=optimize_density,
-                ref_point=config["ref_point"],
-                device=torch.device(runtime_device),
-                dtype=dtype,
-                verbose=verbose,
-            )
+        config["shared_initial_dataset"] = _load_or_create_shared_initial_dataset(
+            objective_function=bundle["objective_function"],
+            checkpoint_root=checkpoint_root,
+            cache_dir=cache_dir,
+            eval_config=eval_config,
+            bounds=config["bounds"],
+            dim=config["dim"],
+            num_objectives=num_objectives,
+            initial_samples=initial_samples,
+            custom_initial_solutions=custom_initial_solutions,
+            seed=seed,
+            num_blocks=num_blocks,
+            alpha=alpha,
+            beta=beta,
+            base_model_path=base_model_path,
+            task_model_paths=task_model_paths,
+            fusion_method=fusion_method,
+            optimize_density=optimize_density,
+            ref_point=config["ref_point"],
+            device=torch.device(runtime_device),
+            dtype=dtype,
+            verbose=verbose,
+        )
         iteration_callback = _create_iteration_callback(cache_dir=cache_dir, cleanup_interval=1)
         optimizer_fn, optimizer_kwargs = _prepare_algorithm_kwargs(
             algorithm=algorithm,
@@ -1568,14 +1477,9 @@ if __name__ == "__main__":
         default="priorbo",
         choices=[
             "priorbo",
-            "saasbo",
-            "prior_saas_bo",
-            "sass_prior_bo_wo_update_gap_async",
             "qnehvi",
             "momm",
-            "emm",
             "moead_cmaes",
-            "grid",
         ],
     )
     parser.add_argument("--custom-initial-solutions", type=str, default=None)
@@ -1638,21 +1542,21 @@ if __name__ == "__main__":
     cli_args = parser.parse_args()
     algorithm_preset = _get_algorithm_preset(cli_args.algorithm)
     algorithm_name = algorithm_preset["normalized_algorithm"]
-    enable_importance_update = False if algorithm_name == "prior_saas_bo" else True
+    enable_importance_update = True
     if cli_args.enable_importance_update:
         enable_importance_update = True
     if cli_args.disable_importance_update:
         enable_importance_update = False
     if algorithm_preset["enable_importance_update"] is not None:
         enable_importance_update = bool(algorithm_preset["enable_importance_update"])
-    enable_importance_guidance = False if algorithm_name == "prior_saas_bo" else True
+    enable_importance_guidance = True
     if cli_args.enable_importance_guidance:
         enable_importance_guidance = True
     if cli_args.disable_importance_guidance:
         enable_importance_guidance = False
     if algorithm_preset["enable_importance_guidance"] is not None:
         enable_importance_guidance = bool(algorithm_preset["enable_importance_guidance"])
-    enable_importance_prior_cutoff = False if algorithm_name == "prior_saas_bo" else True
+    enable_importance_prior_cutoff = True
     if cli_args.enable_importance_prior_cutoff:
         enable_importance_prior_cutoff = True
     if cli_args.disable_importance_prior_cutoff:

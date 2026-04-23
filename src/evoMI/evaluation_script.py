@@ -20,8 +20,7 @@ DEFAULT_ALGORITHMS = [
     {"name": "prior_sync", "algorithm": "priorbo", "async_mode": False},
     {"name": "prior_async", "algorithm": "priorbo", "async_mode": True},
     {"name": "mmmo", "algorithm": "mmmo", "async_mode": False},
-    {"name": "emm", "algorithm": "emm", "async_mode": False},
-    {"name": "grid", "algorithm": "grid", "async_mode": False},
+    {"name": "moead_cmaes", "algorithm": "moead_cmaes", "async_mode": False},
 ]
 
 

@@ -4,7 +4,7 @@ APBMM is the minimal runnable code release for the AP-BMM paper. This repository
 
 ## Included in this release
 
-- `src/evoMI/mi_opt_unified.py`: unified entry for AP-BMM and optimization baselines.
+- `src/evoMI/mi_opt_unified.py`: unified entry for AP-BMM and the paper's optimization baselines.
 - `src/evoMI/mi_opt_optimizer.py`: prior construction and block-partition helpers used by the main pipeline.
 - `src/evoMI/model_reproduction.py`: checkpoint replay, merged-model generation, and cached evaluation.
 - `src/evoMI/evaluation_script.py`: sequential evaluation helper for multiple algorithms.
@@ -85,7 +85,7 @@ This checks the release layout, imports the core modules, and runs `mi_opt_unifi
 
 ## Verified smoke tests
 
-The following lightweight commands were verified in a local environment. They validate the repository layout and CLI entry points without launching a full GPU-heavy experiment:
+The following lightweight commands were verified in a local environment. They validate the repository layout and the paper-related CLI entry points:
 
 ```bash
 python scripts/apbmm_quickstart.py
@@ -93,7 +93,7 @@ python src/evoMI/mi_opt_unified.py --help
 python src/ta_methos/model_level_fusion_test.py --help
 python src/evoMI/evaluation_script.py \
   --plan-only \
-  --algorithms qnehvi prior_async emm \
+  --algorithms qnehvi prior_async moead_cmaes \
   --eval-profile gsm8k_gpqa \
   --gsm8k-limit 2 \
   --gpqa-limit 2 \
@@ -128,12 +128,6 @@ python src/evoMI/mi_opt_unified.py \
   --available-gpus 0 1 2 3
 ```
 
-There is also a preset alias retained from the research codebase:
-
-```bash
-python src/evoMI/mi_opt_unified.py --algorithm sass_prior_bo_wo_update_gap_async ...
-```
-
 ## Optimization baselines
 
 `src/evoMI/mi_opt_unified.py` also supports:
@@ -141,10 +135,6 @@ python src/evoMI/mi_opt_unified.py --algorithm sass_prior_bo_wo_update_gap_async
 - `qnehvi`
 - `momm`
 - `moead_cmaes`
-- `saasbo`
-- `prior_saas_bo`
-- `emm`
-- `grid`
 
 Example:
 
@@ -192,7 +182,7 @@ After generating checkpoints, you can run:
 
 ```bash
 python src/evoMI/evaluation_script.py \
-  --algorithms qnehvi prior_sync prior_async emm grid \
+  --algorithms qnehvi prior_sync prior_async mmmo moead_cmaes \
   --checkpoint-root ./checkpoints/statistical_eval \
   --cache-root ./output/statistical_eval_cache \
   --eval-profile gsm8k_gpqa \
@@ -207,8 +197,7 @@ Supported `evaluation_script.py --algorithms` values are:
 - `prior_sync`
 - `prior_async`
 - `mmmo`
-- `emm`
-- `grid`
+- `moead_cmaes`
 
 ## Outputs
 

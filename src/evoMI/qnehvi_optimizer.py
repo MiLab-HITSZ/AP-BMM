@@ -18,7 +18,7 @@ from gpytorch.settings import fast_computations
 from botorch.fit import fit_gpytorch_mll as botorch_fit_gpytorch_mll
 
 
-def qehvi_optimizer(
+def qnehvi_optimizer(
     objective_function,
     dim=3,
     num_objectives=2,
@@ -260,7 +260,7 @@ def qehvi_optimizer(
         """训练模型"""
         botorch_fit_gpytorch_mll(mll)
     
-    def optimize_qehvi_and_get_observation(model, train_x, train_obj, sampler):
+    def optimize_qnehvi_and_get_observation(model, train_x, train_obj, sampler):
         """优化qLogEHVI获取函数，并返回新的候选点和观察值"""
         # 确保所有数据在同一设备和数据类型上
         ref_point_device = train_x.device
@@ -445,7 +445,7 @@ def qehvi_optimizer(
             sampler = SobolQMCNormalSampler(sample_shape=torch.Size([MC_SAMPLES]))
             
             # 优化获取函数并获取新的观察值
-            new_x, new_obj, new_obj_true, new_info, cleanup_paths = optimize_qehvi_and_get_observation(
+            new_x, new_obj, new_obj_true, new_info, cleanup_paths = optimize_qnehvi_and_get_observation(
                 model, train_x, train_obj, sampler
             )
             
@@ -546,3 +546,7 @@ def plot_hypervolume_history(hvs, problem_name="Multi-objective Problem", save_p
     """
     # 使用可视化工具类进行绘图
     reporter.plot_hypervolume_history(hvs, problem_name, save_path)
+
+
+# Backward-compatible alias kept during the naming cleanup.
+qehvi_optimizer = qnehvi_optimizer

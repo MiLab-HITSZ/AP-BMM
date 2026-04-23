@@ -26,7 +26,7 @@ from botorch.sampling.normal import SobolQMCNormalSampler
 from botorch.fit import fit_gpytorch_mll as botorch_fit_gpytorch_mll
 
 
-def mm_mo_optimizer(
+def momm_optimizer(
     objective_function,
     dim=3,
     num_objectives=2,
@@ -302,7 +302,7 @@ def mm_mo_optimizer(
         )
 
         acq_pool_size = max(BATCH_SIZE * 3, BATCH_SIZE + 2)
-        qehvi_candidates, _ = optimize_acqf(
+        qnehvi_candidates, _ = optimize_acqf(
             acq_function=acq_func,
             bounds=standard_bounds,
             q=acq_pool_size,
@@ -311,13 +311,13 @@ def mm_mo_optimizer(
             options={"batch_limit": 5, "maxiter": 100},
             sequential=True,
         )
-        qehvi_candidates = unnormalize(qehvi_candidates.detach(), bounds)
+        qnehvi_candidates = unnormalize(qnehvi_candidates.detach(), bounds)
 
         w2s_candidates = generate_w2s_candidates(train_x, train_obj_true, acq_pool_size)
-        candidate_pool = torch.cat([qehvi_candidates, w2s_candidates], dim=0)
+        candidate_pool = torch.cat([qnehvi_candidates, w2s_candidates], dim=0)
         candidate_pool = deduplicate_candidates(candidate_pool)
         if candidate_pool.shape[0] == 0:
-            candidate_pool = qehvi_candidates[:BATCH_SIZE]
+            candidate_pool = qnehvi_candidates[:BATCH_SIZE]
 
         normalized_pool = normalize(candidate_pool, bounds)
         acq_values = acq_func(normalized_pool.unsqueeze(1)).flatten()
@@ -450,7 +450,7 @@ def mm_mo_optimizer(
             if torch.device(device).type == "cuda":
                 torch.cuda.empty_cache()
     except Exception as exc:
-        print(f"错误: MM-MO优化过程中发生异常: {exc}")
+        print(f"错误: MOMM优化过程中发生异常: {exc}")
         import traceback
         traceback.print_exc()
         save_runtime_reports(run_dir, scheduler_history=scheduler_history, hv_curve=hv_curve)
@@ -458,3 +458,7 @@ def mm_mo_optimizer(
 
     save_runtime_reports(run_dir, scheduler_history=scheduler_history, hv_curve=hv_curve)
     return train_x, train_obj_true, train_info, hvs, problem_ref_point, run_id
+
+
+# Backward-compatible alias kept during the naming cleanup.
+mm_mo_optimizer = momm_optimizer

@@ -35,10 +35,10 @@ from src.evoMI.evaluation_utils import (
     normalize_eval_limit,
     save_results_to_cache,
 )
-from src.evoMI.mm_mo_optimizer import mm_mo_optimizer
+from src.evoMI.momm_optimizer import momm_optimizer
 from src.evoMI.moead_cmaes_prior_optimizer import moead_cmaes_prior_optimizer
 from src.evoMI.optimizer import prior_bo_optimizer
-from src.evoMI.qehvi_optimizer import qehvi_optimizer
+from src.evoMI.qnehvi_optimizer import qnehvi_optimizer
 from src.evoMI.saasbo_qnehvi_optimizer import prior_saas_bo_optimizer
 
 
@@ -856,15 +856,15 @@ def _build_objective_bundle(
         }
 
     from src.evoMI.mi_block_fusion import calculate_merged_blocks
-    from src.evoMI.mi_opt_saasbo2 import (
+    from src.evoMI.async_merge_evaluator import (
         collect_newly_completed_tasks,
         get_idle_gpu_count,
         get_shared_vllm_manager,
         initialize_model_evaluations,
-        model_merge_optimization_function,
+        evaluate_merge_objectives,
         set_available_gpus,
         shutdown_shared_vllm_manager,
-        start_async_model_merge_evaluation_session,
+        start_async_merge_evaluation,
     )
 
     set_available_gpus(available_gpus)
@@ -892,7 +892,7 @@ def _build_objective_bundle(
     )
 
     def wrapped_optimization_function(x, eval_limit=None, eval_mode="full", estimated_tokens=None):
-        return model_merge_optimization_function(
+        return evaluate_merge_objectives(
             x,
             merged_blocks=merged_blocks,
             num_blocks=num_blocks,
@@ -914,7 +914,7 @@ def _build_objective_bundle(
         )
 
     def start_async_session(x, eval_limit=None, estimated_tokens=None):
-        return start_async_model_merge_evaluation_session(
+        return start_async_merge_evaluation(
             decision_matrix=x,
             base_model_path=base_model_path,
             task_model_paths=task_model_paths,
@@ -994,8 +994,8 @@ def _prepare_algorithm_kwargs(
     optimizer_map = {
         "priorbo": prior_bo_optimizer,
         "prior_saas_bo": prior_saas_bo_optimizer,
-        "qnehvi": qehvi_optimizer,
-        "momm": mm_mo_optimizer,
+        "qnehvi": qnehvi_optimizer,
+        "momm": momm_optimizer,
         "moead_cmaes": moead_cmaes_prior_optimizer,
     }
     optimizer_fn = optimizer_map[algorithm]

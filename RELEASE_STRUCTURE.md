@@ -6,7 +6,7 @@ This document summarizes the retained code structure for the AP-BMM paper implem
 
 - `src/evoMI/mi_opt_unified.py`: main optimization entry for AP-BMM and optimization baselines.
 - `src/evoMI/mi_opt_optimizer.py`: prior construction and block partition helpers.
-- `src/evoMI/mi_opt_saasbo2.py`: asynchronous evaluation orchestration for the AP-BMM pipeline.
+- `src/evoMI/async_merge_evaluator.py`: asynchronous evaluation orchestration for the AP-BMM pipeline.
 - `src/evoMI/evaluation_utils.py`: evaluation configuration, caching, and task execution helpers.
 - `src/evoMI/runtime_artifacts.py`: checkpoint/runtime artifact generation used by the core pipeline.
 - `src/evoMI/task_diff_analyzer.py`: discrepancy analysis used to form AP-BMM priors.

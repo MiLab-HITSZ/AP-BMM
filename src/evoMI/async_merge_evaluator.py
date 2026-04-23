@@ -28,7 +28,7 @@ from src.evoMI.vllm_server_manager import VllmServerManager
 from src.evoMI.result_processor import ResultProcessor
 from src.evoMI.saasbo_qnehvi_optimizer import saasbo_qnehvi_optimizer
 from src.evoMI.saasbo_qnehvi_optimize_block import saasbo_qnehvi_two_stage
-from src.evoMI.qehvi_optimizer import qehvi_optimizer
+from src.evoMI.qnehvi_optimizer import qnehvi_optimizer
 from src.evoMI.optimization_reporting import reporter
 from src.evoMI.mi_block_fusion import mi_block_fusion
 from src.evoMI.evaluation_utils import (
@@ -112,7 +112,7 @@ def collect_newly_completed_tasks():
     return manager.collect_newly_completed_tasks()
 
 
-def create_optimizer_config(
+def build_optimizer_config(
     custom_initial_solutions=None,
     num_blocks=8,
     num_objectives=2,
@@ -440,7 +440,7 @@ def _build_candidate_specs(
     return decision_matrix, candidate_specs
 
 
-class AsyncModelMergeEvaluationSession:
+class AsyncMergeEvaluationSession:
     def __init__(self, candidate_specs, finalize_series=True):
         self.candidate_specs = list(candidate_specs)
         self.total_candidates = len(self.candidate_specs)
@@ -668,7 +668,7 @@ def _process_completed_task_result(task_id, task_result, spec, result_processor,
         return _build_candidate_error_result(spec, f"result_processing_error: {e}")
 
 
-def start_async_model_merge_evaluation_session(
+def start_async_merge_evaluation(
     decision_matrix,
     base_model_path="models/Qwen3-4B",
     task_model_paths=["models/Qwen3-4B-thinking-2507", "models/Qwen3-4B"],
@@ -700,7 +700,7 @@ def start_async_model_merge_evaluation_session(
         estimated_tokens=estimated_tokens,
     )
     print(f"开始处理 {decision_matrix.shape[0]} 个候选方案")
-    session = AsyncModelMergeEvaluationSession(candidate_specs=candidate_specs, finalize_series=finalize_series)
+    session = AsyncMergeEvaluationSession(candidate_specs=candidate_specs, finalize_series=finalize_series)
     if len(candidate_specs) == 0:
         session.mark_done()
         return session
@@ -842,7 +842,7 @@ def start_async_model_merge_evaluation_session(
     return session
 
 
-def process_decision_variables(decision_matrix, base_model_path="models/Qwen3-4B", 
+def evaluate_decision_matrix(decision_matrix, base_model_path="models/Qwen3-4B", 
                               task_model_paths=["models/Qwen3-4B-thinking-2507", "models/Qwen3-4B"], 
                               base_output_dir="output/mi_optimizer",
                               max_tokens: int = 35000, max_model_len: int = None,
@@ -857,7 +857,7 @@ def process_decision_variables(decision_matrix, base_model_path="models/Qwen3-4B
                               eval_profile="aime_gpqa",
                               eval_repeats=None,
                               eval_seed=42):
-    session = start_async_model_merge_evaluation_session(
+    session = start_async_merge_evaluation(
         decision_matrix=decision_matrix,
         base_model_path=base_model_path,
         task_model_paths=task_model_paths,
@@ -897,7 +897,7 @@ def process_decision_variables(decision_matrix, base_model_path="models/Qwen3-4B
     return np.concatenate(objectives, axis=0), metrics
 
 
-def model_merge_optimization_function(x: np.ndarray, merged_blocks: list = None, num_blocks: int = 8, cache_dir: str = None, 
+def evaluate_merge_objectives(x: np.ndarray, merged_blocks: list = None, num_blocks: int = 8, cache_dir: str = None, 
                                       base_model_path="models/Qwen3-4B", task_model_paths=["models/Qwen3-4B-thinking-2507", "models/Qwen3-4B"],
                                       fusion_method="breadcrumbs", base_model_results=None, expert_model_results=None, 
                                       optimize_density=1, max_tokens: int = 35000, max_model_len: int = None,
@@ -914,7 +914,7 @@ def model_merge_optimization_function(x: np.ndarray, merged_blocks: list = None,
     output_dir = os.path.join(cache_dir, str(int(time.time())))
     os.makedirs(output_dir, exist_ok=True)
     if eval_mode == "submit_async":
-        return start_async_model_merge_evaluation_session(
+        return start_async_merge_evaluation(
             decision_matrix=x,
             base_model_path=base_model_path,
             task_model_paths=task_model_paths,
@@ -934,7 +934,7 @@ def model_merge_optimization_function(x: np.ndarray, merged_blocks: list = None,
             eval_seed=eval_seed,
             finalize_series=True,
         )
-    objectives, metrics = process_decision_variables(
+    objectives, metrics = evaluate_decision_matrix(
         decision_matrix=x,
         base_model_path=base_model_path,
         task_model_paths=task_model_paths,
@@ -956,7 +956,7 @@ def model_merge_optimization_function(x: np.ndarray, merged_blocks: list = None,
     metrics_history.extend(metrics)
     expected_shape = (n_samples, 2)
     if objectives.shape != expected_shape:
-        print(f"警告: process_decision_variables 返回的结果形状不正确: {objectives.shape}，预期 {expected_shape}")
+        print(f"警告: evaluate_decision_matrix 返回的结果形状不正确: {objectives.shape}，预期 {expected_shape}")
         result = np.zeros(expected_shape)
         min_samples = min(n_samples, objectives.shape[0])
         if min_samples > 0:
@@ -966,7 +966,7 @@ def model_merge_optimization_function(x: np.ndarray, merged_blocks: list = None,
 
 
 
-def create_iteration_callback(cache_dir: str, cleanup_interval: int = 1, 
+def build_cache_cleanup_callback(cache_dir: str, cleanup_interval: int = 1, 
                              keep_dirs: list = None, exclude_patterns: list = None):
     """
     创建迭代回调函数，用于在优化过程中清理缓存
@@ -1133,7 +1133,7 @@ def clean_temp_files(directory, keep_dirs=None, exclude_patterns=None):
     return stats
 
 
-def visualize_optimization_results(result_dict: dict, output_dir: str):
+def render_optimization_results(result_dict: dict, output_dir: str):
     """
     可视化优化结果（使用VisualizationTool）
     
@@ -1142,11 +1142,11 @@ def visualize_optimization_results(result_dict: dict, output_dir: str):
         output_dir: 输出目录
     """
     # 使用可视化工具类进行绘图
-    reporter.visualize_optimization_results(result_dict, output_dir)
+    reporter.render_optimization_results(result_dict, output_dir)
     print(f"可视化结果已保存到 {output_dir}")
 
 
-def save_optimization_results(result_dict: dict, output_dir: str):
+def save_optimization_artifacts(result_dict: dict, output_dir: str):
     """
     保存优化结果到文件
     
@@ -1191,7 +1191,7 @@ def save_optimization_results(result_dict: dict, output_dir: str):
     print(f"优化结果已保存到 {output_dir}")
 
 
-def save_settings(params: dict, output_dir: str):
+def save_run_settings(params: dict, output_dir: str):
     """
     保存优化设置到setting.json文件
     
@@ -1207,6 +1207,18 @@ def save_settings(params: dict, output_dir: str):
         json.dump(params, f, indent=2, ensure_ascii=False)
     
     print(f"优化设置已保存到 {settings_path}")
+
+
+# Backward-compatible aliases kept during the second-round naming cleanup.
+AsyncModelMergeEvaluationSession = AsyncMergeEvaluationSession
+create_optimizer_config = build_optimizer_config
+start_async_model_merge_evaluation_session = start_async_merge_evaluation
+process_decision_variables = evaluate_decision_matrix
+model_merge_optimization_function = evaluate_merge_objectives
+create_iteration_callback = build_cache_cleanup_callback
+visualize_optimization_results = render_optimization_results
+save_optimization_results = save_optimization_artifacts
+save_settings = save_run_settings
 
 
 def compute_layer_importance(merged_blocks, num_blocks, optimize_density=1):
@@ -1303,7 +1315,7 @@ def main_optimization(
     base_model_path="models/Qwen3-4B",
     task_model_paths=["models/Qwen3-4B-thinking-2507", "models/Qwen3-4B"],
     # 算法参数
-    algorithm="saasbo_qnehvi",  # 新增参数：算法选择，可选值："saasbo_qnehvi"、"qehvi"或"saasbo_qnehvi_block"
+    algorithm="saasbo_qnehvi",  # 算法选择，可选值："saasbo_qnehvi"、"qnehvi"（兼容旧别名"qehvi"）或"saasbo_qnehvi_block"
     use_saas=True,
     enable_importance_prior=True,
     enable_importance_update=True,
@@ -1363,7 +1375,7 @@ def main_optimization(
         algorithm: str, optional
             优化算法选择，可选值：
             - "saasbo_qnehvi": 使用SAASBO+qNEHVI算法
-            - "qehvi": 使用普通qNEHVI算法
+            - "qnehvi": 使用普通qNEHVI算法（兼容旧别名"qehvi"）
             - "saasbo_qnehvi_block": 使用块优化SAASBO+qNEHVI算法，根据block_configs配置在不同迭代阶段使用不同的分块数
         use_saas: bool, optional
             是否使用SAAS先验（仅当algorithm="saasbo_qnehvi"或"saasbo_qnehvi_block"时有效）
@@ -1444,7 +1456,7 @@ def main_optimization(
     
     # 保存设置到saasbo_qnehvi_optimizer的checkpoint目录中
     print("\n保存设置到checkpoint目录...")
-    save_settings(params_dict, checkpoint_run_dir)
+    save_run_settings(params_dict, checkpoint_run_dir)
     
     # 初始化时计算所有需要的合并块，并保存图形到output_dir
     print("\n初始化时计算所有需要的合并块...")
@@ -1520,7 +1532,7 @@ def main_optimization(
     
     # 创建优化器配置，添加checkpoint_dir参数
     print("\n初始化优化配置...")
-    config = create_optimizer_config(
+    config = build_optimizer_config(
         custom_initial_solutions=custom_initial_solutions,
         num_blocks=num_blocks,
         num_objectives=num_objectives,
@@ -1547,7 +1559,7 @@ def main_optimization(
     
     # 创建缓存清理回调函数，每5轮迭代清理一次
     exclude_patterns = ['pareto', 'best', 'important']  # 需要排除的模式
-    iteration_callback = create_iteration_callback(cache_dir, cleanup_interval=1, exclude_patterns=exclude_patterns)
+    iteration_callback = build_cache_cleanup_callback(cache_dir, cleanup_interval=1, exclude_patterns=exclude_patterns)
     
     # 初始化模型评测结果
     print("\n初始化前清理评估任务缓存目录...")
@@ -1619,7 +1631,7 @@ def main_optimization(
                 merged_blocks_dict[current_num_blocks] = current_merged_blocks
                 print(f"重新计算后merged_blocks包含 {len(current_merged_blocks)} 个块")
         
-        return model_merge_optimization_function(
+        return evaluate_merge_objectives(
             x, 
             merged_blocks=current_merged_blocks, 
             num_blocks=current_num_blocks, 
@@ -1646,9 +1658,9 @@ def main_optimization(
             enable_importance_weighted_acq=enable_importance_weighted_acq,  # 启用或禁用获取函数加权
             **config
         )
-    elif algorithm == "qehvi":
-        # 调用普通的qehvi_optimizer
-        result = qehvi_optimizer(
+    elif algorithm in {"qnehvi", "qehvi"}:
+        # 调用普通的qNEHVI优化器
+        result = qnehvi_optimizer(
             wrapped_optimization_function, 
             iteration_callback=iteration_callback, 
             **config
@@ -1679,7 +1691,7 @@ def main_optimization(
             **config
         )
     else:
-        raise ValueError(f"无效的算法选择: {algorithm}，可选值为'saasbo_qnehvi'、'qehvi'或'saasbo_qnehvi_block'")
+        raise ValueError(f"无效的算法选择: {algorithm}，可选值为'saasbo_qnehvi'、'qnehvi'（或兼容别名'qehvi'）或'saasbo_qnehvi_block'")
     end_time = time.time()
     
     elapsed_time = end_time - start_time
@@ -1702,11 +1714,11 @@ def main_optimization(
     
     # 保存结果，不再包含参数
     print("\n保存优化结果...")
-    save_optimization_results(result_dict, output_dir)
+    save_optimization_artifacts(result_dict, output_dir)
     
     # 可视化结果
     print("\n生成可视化结果...")
-    visualize_optimization_results(result_dict, output_dir)
+    render_optimization_results(result_dict, output_dir)
     
     # 获取帕累托前沿
     pareto_x = result_dict.get('pareto_x', np.array([]))
@@ -1784,7 +1796,7 @@ if __name__ == "__main__":
     
     # 算法选择参数
     parser.add_argument('--algorithm', type=str, default="saasbo_qnehvi",
-                        help='优化算法选择，可选值："saasbo_qnehvi"、"qehvi"或"saasbo_qnehvi_block"')
+                        help='优化算法选择，可选值："saasbo_qnehvi"、"qnehvi"（兼容旧别名"qehvi"）或"saasbo_qnehvi_block"')
     
     # 块优化算法参数
     parser.add_argument('--block-configs', type=str, default="0-2-12;3-5-24;6-20-36",

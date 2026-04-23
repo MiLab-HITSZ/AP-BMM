@@ -14,7 +14,7 @@ class OptimizationReporter:
     """绘图工具类，提供各种优化结果可视化功能"""
     
     @staticmethod
-    def visualize_optimization_results(result_dict: dict, output_dir: str) -> None:
+    def render_optimization_results(result_dict: dict, output_dir: str) -> None:
         """
         可视化优化结果
         
@@ -44,6 +44,8 @@ class OptimizationReporter:
             OptimizationReporter.plot_hypervolume_history(hypervolumes, "多目标优化", os.path.join(output_dir, 'hypervolume_history.png'))
         
         print(f"可视化结果已保存到 {output_dir}")
+
+    visualize_optimization_results = render_optimization_results
     
     @staticmethod
     def _plot_pareto_3d(pareto_y: np.ndarray, all_y: np.ndarray, output_dir: str) -> None:
@@ -182,7 +184,7 @@ class OptimizationReporter:
         save_path : str, optional
             保存图像的路径
         """
-        from .qehvi_optimizer import get_pareto_optimal_points
+        from .qnehvi_optimizer import get_pareto_optimal_points
         
         # 确保张量在CPU上，以便matplotlib绘图
         if isinstance(train_obj_true, torch.Tensor):

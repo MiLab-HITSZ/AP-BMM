@@ -1,34 +1,65 @@
 # AP-BMM
 
-This repository contains the core implementation of **AP-BMM (Asynchronous Prior-guided Bayesian Model Merging)**.
+Official code release for **AP-BMM (Asynchronous Prior-guided Bayesian Model Merging)**.
 
-AP-BMM targets the capability-efficiency trade-off in LLM merging. The method follows the paper design: it performs **layer-wise model merging**, builds a **discrepancy-derived prior** to guide high-dimensional Bayesian optimization, and uses an **asynchronous pending-aware dispatch loop** to better utilize GPUs under highly heterogeneous evaluation latency.
+AP-BMM targets the capability-efficiency trade-off in LLM merging. Compared with coarse model-level merging, it performs **layer-wise optimization** and addresses two bottlenecks emphasized in the paper:
 
-The code in this repository is organized as the paper's open-source implementation: only the main optimization pipeline, the necessary baselines, the model-level comparison methods, and the supporting runtime/evaluation utilities are retained.
+1. **Modeling inefficiency** in the high-dimensional layer-wise merge space.
+2. **System inefficiency** caused by synchronous straggler effects under heterogeneous LLM evaluation latency.
 
-## What is included
+The released code keeps only the paper's core pipeline: AP-BMM itself, the optimization baselines used in the layer-wise comparison, the model-level baselines used in the granularity comparison, and the necessary evaluation/runtime utilities.
 
-- `src/evoMI/mi_opt_unified.py`: unified entry for AP-BMM and the optimization baselines used in the paper.
-- `src/evoMI/mi_opt_optimizer.py`: prior construction and block partition logic.
-- `src/evoMI/mi_opt_saasbo2.py`: asynchronous evaluation and SAAS-prior-related orchestration.
-- `src/evoMI/evaluation_utils.py`: evaluation config, caching, and task-launch utilities.
-- `src/evoMI/runtime_artifacts.py`: checkpoint/runtime artifact helpers used by the core optimization flow.
-- `src/evoMI/task_diff_analyzer.py`: layer discrepancy analysis for building the AP-BMM prior.
-- `src/evoMI/optimization_reporting.py`: optimization result visualization utilities.
-- `src/ta_methos/model_level_fusion_test.py`: model-level baselines used in the paper.
-- `evalscope/`: local evaluation toolkit.
-- `mergekit/`: local model merging backend.
-- `scripts/apbmm_quickstart.py`: quick environment and CLI sanity checker.
+## Method overview
 
-## What is intentionally removed
+AP-BMM combines three coupled components from the paper:
 
-The following non-core utilities are not kept in this release:
+- **Discrepancy-derived importance prior**  
+  Layer-wise parameter discrepancy and reasoning-set activation discrepancy are fused into a prior that initializes surrogate sensitivity.
+- **Pending-aware asynchronous Bayesian optimization**  
+  The optimizer refits on completed observations and dispatches new candidates without waiting for the slowest batch element.
+- **Frontier-coverage reranking**  
+  Candidate pools are reranked with acquisition, frontier-gap reward, and decision-space proximity penalty to improve coverage and reduce redundant dispatches.
 
-- checkpoint post-analysis / replay scripts
-- checkpoint re-evaluation scripts
-- paper-only plotting / redraw scripts
+## Paper-aligned implementation scope
+
+### Core AP-BMM pipeline
+
+- `src/evoMI/mi_opt_unified.py` — unified CLI entry for AP-BMM and layer-wise baselines.
+- `src/evoMI/async_merge_evaluator.py` — asynchronous merge construction, evaluation scheduling, and objective extraction.
+- `src/evoMI/mi_opt_optimizer.py` — prior construction and prior-guided optimization helpers.
+- `src/evoMI/task_diff_analyzer.py` — parameter / activation discrepancy analysis for prior construction.
+- `src/evoMI/runtime_artifacts.py` — runtime traces, hypervolume curves, and checkpoint-side runtime summaries.
+- `src/evoMI/evaluation_utils.py` — benchmark configuration, caching, and task execution helpers.
+
+### Layer-wise baselines in Experiment 1
+
+- `src/evoMI/qnehvi_optimizer.py` — synchronous qNEHVI baseline.
+- `src/evoMI/momm_optimizer.py` — synchronous MOMM-style baseline.
+- `src/evoMI/moead_cmaes_prior_optimizer.py` — MOEA-D+CMA/ES baseline.
+- `src/evoMI/optimizer.py` — prior BO baseline support.
+- `src/evoMI/saasbo_qnehvi_optimizer.py` — SAAS-prior optimization backend used by AP-BMM.
+
+### Model-level baselines in Experiment 2
+
+- `src/ta_methos/model_level_fusion_test.py`
+
+Supported model-level methods:
+
+- Task Arithmetic (TA)
+- TIES
+- DARE
+- Breadcrumbs
+- DELLA
+
+## What is intentionally excluded
+
+This release does **not** keep:
+
+- checkpoint replay / re-evaluation utilities
+- checkpoint-only analysis scripts
+- paper figure regeneration scripts
 - manuscript LaTeX sources
-- debugging / exploratory scripts unrelated to the main paper pipeline
+- exploratory or debugging-only scripts outside the paper workflow
 
 ## Repository layout
 
@@ -51,7 +82,7 @@ APBMM/
 └── RELEASE_STRUCTURE.md
 ```
 
-`checkpoints/`, `models/`, `output/`, and `.mplconfig/` are kept as placeholder directories.
+`models/`, `checkpoints/`, `output/`, and `.mplconfig/` are intentionally lightweight placeholders in Git.
 
 ## Environment setup
 
@@ -65,9 +96,9 @@ export PYTHONPATH=.
 export MPLCONFIGDIR=$PWD/.mplconfig
 ```
 
-## Prepare models
+## Required models
 
-Put the required models under `models/`. The default layout is:
+Place the required models under `models/`. The default paper-style local layout is:
 
 ```text
 models/
@@ -75,17 +106,9 @@ models/
 └── Qwen3-4B-thinking-2507/
 ```
 
-You can also override model paths from the command line.
+You may also override model paths from the CLI.
 
-## Quick sanity check
-
-```bash
-python scripts/apbmm_quickstart.py
-```
-
-This verifies the repository layout, imports the core modules, and checks `mi_opt_unified.py --help`.
-
-## Verified basic checks
+## Sanity checks
 
 ```bash
 python scripts/apbmm_quickstart.py
@@ -93,24 +116,28 @@ python src/evoMI/mi_opt_unified.py --help
 python src/ta_methos/model_level_fusion_test.py --help
 ```
 
-## AP-BMM paper setting
+## AP-BMM paper configuration
 
-The AP-BMM configuration used in the paper corresponds to:
+The paper's AP-BMM setting corresponds to:
 
-- alias: `sass_prior_bo_wo_update_gap_async`
-- normalized optimizer: `prior_saas_bo`
+- algorithm alias: `sass_prior_bo_wo_update_gap_async`
+- normalized optimizer family: `prior_saas_bo`
 
-This preset enables:
+This setting matches the paper's core design:
 
-- asynchronous dispatch
-- SAAS prior
-- blueprint / importance prior
-- no importance update
-- no importance-guided acquisition
-- no importance-prior cutoff
-- gap-aware postprocessing
+- shared initial design: `8` points
+- reporting budget: `40` completed evaluations after initialization
+- dispatch width: `q = 4`
+- worker pool: `4` GPUs
+- acquisition restarts: `10`
+- raw samples: `512`
+- Sobol-QMC MC samples: `128`
+- reranking weights: `lambda_gap = 0.25`, `lambda_prox = 0.15`
+- candidate-pool multiplier: `3`
+- async completion threshold: `0.15`
+- prior fusion weights: parameter / activation = `0.5 / 0.5`
 
-Main command:
+Example command:
 
 ```bash
 python src/evoMI/mi_opt_unified.py \
@@ -130,9 +157,11 @@ python src/evoMI/mi_opt_unified.py \
   --available-gpus 0 1 2 3
 ```
 
-## Optimization baselines
+`88 = 8` initial evaluations `+ 80` total evaluations, which matches the retained implementation's paper-style run setup.
 
-`src/evoMI/mi_opt_unified.py` also supports the main baselines used in the paper:
+## Layer-wise baseline runs
+
+`src/evoMI/mi_opt_unified.py` also exposes the main layer-wise baselines used in the paper:
 
 - `priorbo`
 - `qnehvi`
@@ -154,9 +183,7 @@ python src/evoMI/mi_opt_unified.py \
   --available-gpus 0 1 2 3
 ```
 
-## Model-level baselines
-
-Run the model-level comparison methods with:
+## Model-level baseline runs
 
 ```bash
 python src/ta_methos/model_level_fusion_test.py \
@@ -166,7 +193,7 @@ python src/ta_methos/model_level_fusion_test.py \
   --batch_size 4
 ```
 
-Supported `--fusion_method` values:
+Supported `--fusion_method` values include:
 
 - `task_arithmetic`
 - `ties`
@@ -179,13 +206,13 @@ Supported `--fusion_method` values:
 
 ## Outputs
 
-- optimization checkpoints and runtime artifacts: `checkpoints/`
-- evaluation cache and temporary files: `output/`
-- user-provided model weights: `models/`
+- `checkpoints/` — optimization checkpoints and runtime artifacts
+- `output/` — temporary merged models, evaluation cache, and intermediate runtime files
+- `models/` — local model weights
 
 ## Notes
 
-- The code assumes local GPU evaluation with vLLM.
-- `evalscope` and `mergekit` are vendored to keep the project self-contained.
+- The runtime is designed for local GPU evaluation with persistent vLLM workers.
+- `evalscope/` and `mergekit/` are vendored so the repository remains self-contained.
 - The default benchmark profile used by the main paper experiments is `aime_gpqa`.
-- If you move the project to another machine, usually only model paths, GPU ids, and dataset caches need to be updated.
+- For a new machine, the usual changes are model paths, GPU ids, and local dataset cache locations.

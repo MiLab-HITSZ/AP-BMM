@@ -14,14 +14,14 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.evoMI.optimizer import prior_bo_optimizer
 from src.evoMI.mi_block_fusion import calculate_merged_blocks
 from src.evoMI.task_diff_analyzer import TaskDiffAnalyzer
-from src.evoMI.mi_opt_saasbo2 import (
+from src.evoMI.async_merge_evaluator import (
     initialize_model_evaluations,
-    create_optimizer_config,
-    model_merge_optimization_function,
-    create_iteration_callback,
-    save_optimization_results,
-    save_settings,
-    visualize_optimization_results,
+    build_optimizer_config,
+    evaluate_merge_objectives,
+    build_cache_cleanup_callback,
+    save_optimization_artifacts,
+    save_run_settings,
+    render_optimization_results,
     set_available_gpus,
     get_shared_vllm_manager,
     get_idle_gpu_count,
@@ -338,7 +338,7 @@ def main_optimization(
         "async_mode": async_mode,
         "wait_for_completion_threshold": wait_for_completion_threshold,
     }
-    save_settings(params, output_dir)
+    save_run_settings(params, output_dir)
 
     if reasoning_specs is None:
         reasoning_specs = _default_reasoning_specs(reasoning_limit)
@@ -360,7 +360,7 @@ def main_optimization(
         partition_method="hybrid",
     )
 
-    config = create_optimizer_config(
+    config = build_optimizer_config(
         custom_initial_solutions=custom_initial_solutions,
         num_blocks=num_blocks,
         num_objectives=num_objectives,
@@ -420,10 +420,10 @@ def main_optimization(
         eval_limit={"aime25": eval_aime_limit, "gpqa_diamond": eval_gpqa_limit},
     )
 
-    iteration_callback = create_iteration_callback(cache_dir=cache_dir, cleanup_interval=1, keep_dirs=["important", "checkpoint"], exclude_patterns=["pareto", "best", "important"])
+    iteration_callback = build_cache_cleanup_callback(cache_dir=cache_dir, cleanup_interval=1, keep_dirs=["important", "checkpoint"], exclude_patterns=["pareto", "best", "important"])
 
     def wrapped_optimization_function(x, eval_limit=None, eval_mode="full", estimated_tokens=None):
-        return model_merge_optimization_function(
+        return evaluate_merge_objectives(
             x,
             merged_blocks=merged_blocks,
             num_blocks=num_blocks,
@@ -468,8 +468,8 @@ def main_optimization(
         "run_id": result[5] if len(result) > 5 else None,
     }
 
-    save_optimization_results(result_dict, output_dir)
-    visualize_optimization_results(result_dict, output_dir)
+    save_optimization_artifacts(result_dict, output_dir)
+    render_optimization_results(result_dict, output_dir)
 
     pareto_x = result_dict.get("pareto_x", np.array([]))
     print(f"\n找到 {len(pareto_x)} 个帕累托最优解")

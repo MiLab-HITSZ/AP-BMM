@@ -6,7 +6,7 @@ Official implementation of **AP-BMM: Asynchronous Prior-guided Bayesian Model Me
 
 ## Overview
 
-Large language model deployment often requires balancing **capability** and **efficiency** rather than optimizing only one of them. As stated in the main paper `APBMM.tex`, existing model merging methods are dominated by coarse **model-level operators**, which are simple to apply but provide limited control over the shape of the capability-efficiency trade-off frontier. Layer-wise merging is more expressive, yet prior methods still suffer from two major limitations:
+Large language model deployment often requires balancing **capability** and **efficiency** rather than optimizing only one of them. Existing model merging methods are dominated by coarse **model-level operators**, which are simple to apply but provide limited control over the shape of the capability-efficiency trade-off frontier. Layer-wise merging is more expressive, yet prior methods still suffer from two major limitations:
 
 1. **Modeling inefficiency**: the high-dimensional layer-wise merge space is treated as an unstructured black box.
 2. **System inefficiency**: synchronous optimization wastes wall-clock time under heterogeneous LLM evaluation latency.
